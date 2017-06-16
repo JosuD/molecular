@@ -20,7 +20,7 @@ CFLAGS:=-std=c99 -O3 -Wall -finput-charset=UTF-8
 CFLAGS_DBG:=-std=c99 -D_DEBUG -O0 -Wall -ggdb -finput-charset=UTF-8
 
 # Sería genial que nos dejaran usar la GSL...
-LIBS:=-lm
+LIBS:=-lm -lgsl -lgslcblas
 HEADERS:=$(wildcard *.h)
 
 .PHONY: clean
