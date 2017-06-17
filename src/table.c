@@ -12,13 +12,16 @@
 int main(){
     double r;
     int i;
-    FILE * tabla;
-    tabla = fopen("tabla.dat", "w+");
+    FILE * tabla_fuerza;
+    FILE * tabla_potencial;
+    tabla_fuerza = fopen("tabla_fuerza.dat", "w+");
+    tabla_potencial = fopen("tabla_potencial.dat", "w+");
     for(i=0;i<RMAX/DELTA; i++){
         r = DELTA + i*DELTA;
-        fprintf(tabla, "%f %f\n", r, force(r));
+        fprintf(tabla_fuerza, "%f %f\n", r, force(r));
+        fprintf(tabla_potencial, "%f %f\n", r, potencial(r));
     }
-    fclose(tabla);
+    fclose(tabla_fuerza);
     return 0;
 }
 
@@ -40,4 +43,19 @@ double force(double r){
         fuerza = 0;
     }
     return fuerza;
+}
+
+double potencial(double r){
+    double v;
+    if(r<SIGMA){
+        v =-4*(1/pow(r,12)+1/pow(r,6));
+    } else if (r>SIGMA && r<ROUT){
+        v = 4*(1/pow(r,12)+1/pow(r,6));
+        v *= pow((pow(ROUT,2)-pow(r,2)),2);
+        v *= (pow(r,2)+2*pow(r,2)-3*pow(SIGMA,2));
+        v *= 1/(pow((pow(ROUT,2)-pow(SIGMA,2)),3));
+    } else {
+        v = 0;
+    }
+    return v;
 }
