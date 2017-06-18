@@ -56,7 +56,7 @@ initialise(system_t * restrict sys, unsigned int N,
     sys->kT = kT;
     sys->u = 0;
 
-    if ((flags & INIT_SEITZ) != 0)
+    if (thresh == 0)
       thresh = rs_sq; /* Usa el radio de Seitz como thresh. */
     
     if ((flags & INIT_P_GEN) != 0) {
@@ -82,7 +82,7 @@ initialise(system_t * restrict sys, unsigned int N,
 
     sigma = sqrt(PARTICLE_MASS * kT);
 
-    if (thresh <= 0) { /* Para agilizar... */
+    if (thresh < 0) { /* Para agilizar... */
 
       for (n = 0; n < N; n++) {
 
@@ -114,7 +114,7 @@ initialise(system_t * restrict sys, unsigned int N,
 	/* .:: Energía ::. */
 
 	/* Partícula. */
-	swarm[n].K += swarm[n].p/(2 * PARTICLE_MASS);
+	swarm[n].K = swarm[n].p/(2 * PARTICLE_MASS);
 	swarm[n].p = sqrt(swarm[n].p);
 
 	/* Sistema. */
@@ -204,7 +204,7 @@ initialise(system_t * restrict sys, unsigned int N,
 	  swarm[n].py * swarm[n].py +
 	  swarm[n].pz * swarm[n].pz;
 
-	swarm[n].K += swarm[n].p/(2 * PARTICLE_MASS);
+	swarm[n].K = swarm[n].p/(2 * PARTICLE_MASS);
 	swarm[n].p = sqrt(swarm[n].p);
 
 	/* Sistema. */

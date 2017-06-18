@@ -44,7 +44,7 @@ int main (int argc, char *argv[]) {
 
     gsl_rng_set(rng, s);
 
-    /* initialise(&sys, N, 40, 1, 0, rng, INIT_SEITZ); */
+    /* initialise(&sys, N, 40, 1, 0, rng, 0); */
     /* printf("Escrito: %lu\n", save_state("prueba", &sys, 1)); */
     /* sys_free(&sys); */
 
