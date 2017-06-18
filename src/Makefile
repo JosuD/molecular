@@ -16,8 +16,8 @@ TARGET_DBG:=$(addsuffix _dbg,$(TARGET))
 OBJS:=$(patsubst %.c,%.o,$(wildcard *.c))
 OBJS_DBG:=$(patsubst %.c,%_dbg.o,$(wildcard *.c))
 
-CFLAGS:=-std=c99 -O3 -Wall -finput-charset=UTF-8
-CFLAGS_DBG:=-std=c99 -D_DEBUG -O0 -Wall -ggdb -finput-charset=UTF-8
+CFLAGS:=-std=c99 -I=/usr/include/gsl -O3 -Wall -finput-charset=UTF-8
+CFLAGS_DBG:=-std=c99 -I=/usr/include/gsl -D_DEBUG -O0 -Wall -ggdb -finput-charset=UTF-8
 
 # Sería genial que nos dejaran usar la GSL...
 LIBS:=-lm -lgsl -lgslcblas

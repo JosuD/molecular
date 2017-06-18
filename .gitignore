@@ -1,8 +1,25 @@
+# ..: Backup y escondidos ::.
+
 *.*~
 *~
-
 .*
 !.gitignore
+
+# .:: Familias ::.
+
+*.html
+*.txt
+*.bin
+*.png
+*.jpg
+*.dat 
+
+# .:: Targets ::.
+
+molecular
+molecular_dbg
+
+# .:: Directorios ::.
 
 src/*.o
 datos/
