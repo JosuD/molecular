@@ -9,7 +9,7 @@
 #define ROUT 3
 
 
-int main(){
+int gen_tabla(){
     double r;
     int i;
     FILE * tabla_fuerza;
