@@ -101,7 +101,9 @@ initialise(system_t * restrict sys, unsigned int N,
 	/* Para la energía, es necesario hallar |p| y |r|, por lo que
 	 * se calculan aún si INIT_POLAR no está en `flags'. */
 
-	swarm[n].r = sqrt(x * x + y * y + z * z);
+	swarm[n].r = sqrt(swarm[n].x * swarm[n].x +
+			  swarm[n].y * swarm[n].y +
+			  swarm[n].z * swarm[n].z);
 
 	/* En realidad, se calcula |p|^2 para la energía y 
 	 * luego se toma la raíz. */
@@ -121,9 +123,9 @@ initialise(system_t * restrict sys, unsigned int N,
 	for (k = 0; k < n; ++k) { /* Potencial (con todos los anteriores). */
 
 	  /* En este caso, no es `sq' :-D */
-	  d_sq = sqrt((swarm[k].x - x) * (swarm[k].x - x) +
-		      (swarm[k].y - y) * (swarm[k].y - y) +
-		      (swarm[k].z - z) * (swarm[k].z - z));
+	  d_sq = sqrt((swarm[k].x - swarm[n].x) * (swarm[k].x - swarm[n].x) +
+		      (swarm[k].y - swarm[n].y) * (swarm[k].y - swarm[n].y) +
+		      (swarm[k].z - swarm[n].z) * (swarm[k].z - swarm[n].z));
 
 	  sys->u += potencial(d_sq);
 	}	  
@@ -330,65 +332,85 @@ save_state (const char *path, system_t * restrict state, int table) {
 }
 
 ssize_t
-load_state(const char *path, system_t * restrict state, int swarm) {
+load_state(const char *path, system_t * restrict state) {
 
-  //////////////////////// TODO ///////////////////////
+  int fdes;
+  off_t flen;
+  size_t sw_size;
+  int8_t *buff;
+  ssize_t sread, cread;
 
-/*   int fdes; */
-/*   off_t flen; */
-/*   int8_t *buff; */
-/*   ssize_t sread, cread; */
+  /* Lee el estado almacenado en `path' directamente sobre `state'.
+   * Es importante preservar el orden de la estructura `system', por
+   * condiciones de `padding' y alineamiento (al parecer). */
 
-/*   /\* Lee el estado almacenado en `path' directamente sobre `state'. */
-/*    * Es importante preservar el orden de la estructura `system', por */
-/*    * condiciones de `padding' y alineamiento (al parecer). *\/ */
-
-/*   sread = -1; */
-/*   fdes = open(path, O_RDONLY); */
+  sread = 0;
+  fdes = open(path, O_RDONLY);
   
-/*   if (fdes > 0) { */
+  if (fdes > 0) {
 
+    flen = lseek(fdes, 0, SEEK_END);
 
-/*     if (flen < 0) */
-/*       size_n *= sizeof(particle_t); */
-/*     else */
-/*       size_n = flen; */
+    if (flen > sizeof(system_t)) {
 
-/*     lseek(fdes, 0, SEEK_SET); */
+      lseek(fdes, 0, SEEK_SET);
+      buff = (int8_t *)state;
+      sread = 0;
 
-/*     if (*state == NULL) /\* Hay que alojar un bloque nuevo. *\/ */
-/*       *state = (system_t)malloc(size_n); */
+      do {
 
-/*     if (*state != NULL) { */
+	cread = read(fdes, buff + sread, sizeof(system_t) - sread);
 
-/*       /\* Lee bloques de bytes del archivo y va copiándolos a memoria. *\/ */
-/*       buff = (int8_t *)(*state); */
-/*       sread = 0; */
+	if (cread < 0) {
+	  close(fdes);
+	  fdes = -1;
+	  break;
+	}
 
-/*       do { */
+	sread += cread;
+      } while (sread < sizeof(system_t));
 
-/* 	cread = read(fdes, buff + sread, size_n - sread); */
+      if (fdes > 0) {
 
-/* 	/\* En caso de error, deja de leer inmediatamente y cierra */
-/* 	 * el archivo. La cantidad de bytes devueltos (por la rutina) */
-/* 	 * indica el total de bytes leídos. *\/ */
+	/* Lee el enjambre, tomando el tamaño indicado en las propiedades. */
 
-/* 	if (cread < 0) { */
-/* 	  close(fdes); */
-/* 	  break; */
-/* 	} */
-	
-/* 	sread += cread; */
+	state->swarm = (particle_t *)calloc(state->N, sizeof(particle_t));
+	sw_size = state->N * sizeof(particle_t);
 
-/*       } while (cread > 0 && sread < size_n); */
+	if (state->swarm != NULL) {
 
-/*       /\* Cierra el archivo (si no se hizo antes). *\/ */
-/*       if (cread >= 0) */
-/* 	close(fdes); */
-/*     } */
-/*   } */
+	  sread = 0;
+	  buff = (int8_t *)state->swarm;
 
-/*   return sread; */
-/* } */
+	  do {
+	    cread = read(fdes, buff + sread, sw_size - sread);
 
+	    if (cread < 0) {
+	      close(fdes);
+	      break;
+	    }
+
+	    sread += cread;
+	  } while (sread < sw_size);
+	}
+
+	sread += sizeof(system_t);
+
+	/* Cierra (si no se hizo antes). */
+	if (cread >= 0)
+	  close(fdes);
+      }
+      else
+	sread = -sread;
+    }
+  }
+
+  return sread;
+}
+
+void
+sys_free(system_t * restrict system) {
+
+  free(system->swarm);
+  memset(system, 0, sizeof(system_t));
 }

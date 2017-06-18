@@ -44,6 +44,22 @@ int main (int argc, char *argv[]) {
 
     gsl_rng_set(rng, s);
 
+    /* initialise(&sys, N, 40, 1, 0, rng, INIT_SEITZ); */
+    /* printf("Escrito: %lu\n", save_state("prueba", &sys, 1)); */
+    /* sys_free(&sys); */
+
+    printf("Leído: %lu\n", load_state("prueba.bin", &sys));
+
+    for (n = 0; n < N; ++n)
+      printf("%3i %.5f %.5f %.5f %.5f %.5f %.5f "
+    	     "%.5f %.5f %.5f %.5f %.5f %.5f\n",
+    	     n, sys.swarm[n].x, sys.swarm[n].y, sys.swarm[n].z,
+    	     sys.swarm[n].r, sys.swarm[n].theta, sys.swarm[n].phi,
+    	     sys.swarm[n].px, sys.swarm[n].py, sys.swarm[n].pz,
+    	     sys.swarm[n].p, sys.swarm[n].p_theta, sys.swarm[n].p_phi);
+    
+    sys_free(&sys);
+
     /* initialise(&sys, N, 40, 10, 0, rng, INIT_SEITZ); */
     /* printf("Escrito: %lu\n", save_state("prueba", sys, N, 1)); */
     /* free(sys); */

@@ -14,13 +14,12 @@
 
 struct particle {
 
+  double K; /* Energía cinética. */
+
   double x, y, z,
     r, theta, phi,
     px, py, pz,
     p, p_theta, p_phi;
-  
-  double K; /* Energía cinética. */
-  
 };
 
 typedef struct particle particle_t;
@@ -43,6 +42,7 @@ void initialise(system_t * restrict, unsigned int, double, double,
 		double, const gsl_rng * restrict, int);
 
 ssize_t save_state(const char *, system_t * restrict, int);
-ssize_t load_state(const char *, system_t * restrict, int);
+ssize_t load_state(const char *, system_t * restrict);
+void sys_free(system_t * restrict);
 
 #endif /* _INIT_H_ */
