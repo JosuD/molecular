@@ -18,10 +18,20 @@ struct particle {
     r, theta, phi,
     px, py, pz,
     p, p_theta, p_phi;
+  
+  double K; /* Energía cinética. */
+  
 };
 
 typedef struct particle particle_t;
-typedef particle_t * system_t;
+
+struct system {
+  unsigned int N;
+  double kT, u;
+  particle_t *swarm;
+};
+
+typedef struct system system_t;
 
 /* Opciones. */
 #define INIT_SEITZ  ((int)1)
@@ -29,10 +39,10 @@ typedef particle_t * system_t;
 #define INIT_POLAR  ((int)4)
 
 /* Rutinas. */
-void initialise(system_t * restrict, int, double, double,
+void initialise(system_t * restrict, unsigned int, double, double,
 		double, const gsl_rng * restrict, int);
 
-ssize_t save_state(const char *, system_t, size_t, int);
-ssize_t load_state(const char *, system_t * restrict, size_t);
+ssize_t save_state(const char *, system_t * restrict, int);
+ssize_t load_state(const char *, system_t * restrict, int);
 
 #endif /* _INIT_H_ */

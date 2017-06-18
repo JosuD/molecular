@@ -15,10 +15,12 @@
 #include "gsl_complex.h"
 #include "gsl_complex_math.h"
 
+#include "table.h"
+
 #define INIT_MAX_TRIES ((int)100)
 
 void
-initialise(system_t * restrict sys_p, int N,
+initialise(system_t * restrict sys, unsigned int N,
 	   double L, double kT, double thresh,
 	   const gsl_rng *restrict rng, int flags) {
   
@@ -26,7 +28,7 @@ initialise(system_t * restrict sys_p, int N,
   unsigned long seed;
   double sigma;
   FILE *frand;
-  system_t sys;
+  register particle_t *swarm;
   double d_sq, x, y, z;
   gsl_rng *p_rng;
   gsl_complex c;
@@ -42,11 +44,17 @@ initialise(system_t * restrict sys_p, int N,
    */
 
   const double rs_sq = L * L/(M_PI * N);
-  
-  *sys_p = (particle_t *)calloc(N, sizeof(particle_t));
-  sys = *sys_p;
+ 
+  sys->swarm = (particle_t *)calloc(N, sizeof(particle_t));
+  swarm = sys->swarm;
 
-  if (sys != NULL) {
+  if (swarm != NULL) {
+
+    /* Propiedades. */
+
+    sys->N = N;
+    sys->kT = kT;
+    sys->u = 0;
 
     if ((flags & INIT_SEITZ) != 0)
       thresh = rs_sq; /* Usa el radio de Seitz como thresh. */
@@ -80,20 +88,50 @@ initialise(system_t * restrict sys_p, int N,
 
 	/* Espacial. */
 
-	sys[n].x = L * gsl_rng_uniform(rng) - L/2;
-	sys[n].y = L * gsl_rng_uniform(rng) - L/2;
-	sys[n].z = L * gsl_rng_uniform(rng) - L/2;
+	swarm[n].x = L * gsl_rng_uniform(rng) - L/2;
+	swarm[n].y = L * gsl_rng_uniform(rng) - L/2;
+	swarm[n].z = L * gsl_rng_uniform(rng) - L/2;
 	
 	/* De momentos. */
 
-	sys[n].px = gsl_ran_gaussian(p_rng, sigma);
-	sys[n].py = gsl_ran_gaussian(p_rng, sigma);
-	sys[n].pz = gsl_ran_gaussian(p_rng, sigma);
+	swarm[n].px = gsl_ran_gaussian(p_rng, sigma);
+	swarm[n].py = gsl_ran_gaussian(p_rng, sigma);
+	swarm[n].pz = gsl_ran_gaussian(p_rng, sigma);
+
+	/* Para la energía, es necesario hallar |p| y |r|, por lo que
+	 * se calculan aún si INIT_POLAR no está en `flags'. */
+
+	swarm[n].r = sqrt(x * x + y * y + z * z);
+
+	/* En realidad, se calcula |p|^2 para la energía y 
+	 * luego se toma la raíz. */
+	swarm[n].p = swarm[n].px * swarm[n].px +
+	  swarm[n].py * swarm[n].py +
+	  swarm[n].pz * swarm[n].pz;
+	
+	/* .:: Energía ::. */
+
+	/* Partícula. */
+	swarm[n].K += swarm[n].p/(2 * PARTICLE_MASS);
+	swarm[n].p = sqrt(swarm[n].p);
+
+	/* Sistema. */
+	sys->u += swarm[n].K;
+
+	for (k = 0; k < n; ++k) { /* Potencial (con todos los anteriores). */
+
+	  /* En este caso, no es `sq' :-D */
+	  d_sq = sqrt((swarm[k].x - x) * (swarm[k].x - x) +
+		      (swarm[k].y - y) * (swarm[k].y - y) +
+		      (swarm[k].z - z) * (swarm[k].z - z));
+
+	  sys->u += potencial(d_sq);
+	}	  
       }
     }
     else { /* Hay que aplicar un umbral. */
 
-      /* El procedimiento consyste en:
+      /* El procedimiento consiste en:
        *
        * 1. Generar un punto nuevo (x, y, z) ___bajo la suposición___ de que
        *    inicialmente, las posiciones de las partículas son estadísticamente
@@ -116,9 +154,9 @@ initialise(system_t * restrict sys_p, int N,
 
       tries = 0; /* Intentos. */
 
-      sys[0].x = L * gsl_rng_uniform(rng) - L/2;
-      sys[0].y = L * gsl_rng_uniform(rng) - L/2;
-      sys[0].z = L * gsl_rng_uniform(rng) - L/2;
+      swarm[0].x = L * gsl_rng_uniform(rng) - L/2;
+      swarm[0].y = L * gsl_rng_uniform(rng) - L/2;
+      swarm[0].z = L * gsl_rng_uniform(rng) - L/2;
 
       for (n = 1; n < N;) {
 
@@ -130,9 +168,9 @@ initialise(system_t * restrict sys_p, int N,
 	
 	  /* Distancia cuadrática entre ambos centros. */
 
-	  d_sq = (sys[k].x - x) * (sys[k].x - x) +
-	    (sys[k].y - y) * (sys[k].y - y);
-	    //	    (sys[k].z - z) * (sys[k].z - z);
+	  d_sq = (swarm[k].x - x) * (swarm[k].x - x) +
+	    (swarm[k].y - y) * (swarm[k].y - y);
+	    //	    (swarm[k].z - z) * (swarm[k].z - z);
 	
 	  if (d_sq < thresh) /* muy cerca... */
 	    break;
@@ -144,25 +182,49 @@ initialise(system_t * restrict sys_p, int N,
 	  continue;
 	}
 
-	/* Guarda la terna generada. */
+	/* Almacena las ternas. */
 
 	/* Posiciones. */
-	sys[n].x = x;
-	sys[n].y = y;
-	sys[n].z = z;
+	swarm[n].x = x;
+	swarm[n].y = y;
+	swarm[n].z = z;
 
 	/* Momentos. */
-	sys[n].px = gsl_ran_gaussian(p_rng, sigma);
-	sys[n].py = gsl_ran_gaussian(p_rng, sigma);
-	sys[n].pz = gsl_ran_gaussian(p_rng, sigma);
+	swarm[n].px = gsl_ran_gaussian(p_rng, sigma);
+	swarm[n].py = gsl_ran_gaussian(p_rng, sigma);
+	swarm[n].pz = gsl_ran_gaussian(p_rng, sigma);
+
+	/* .:: Energía ::. */
+
+	/* Partícula. */
+	swarm[n].r = sqrt(x * x + y * y + z * z);
+	swarm[n].p = swarm[n].px * swarm[n].px +
+	  swarm[n].py * swarm[n].py +
+	  swarm[n].pz * swarm[n].pz;
+
+	swarm[n].K += swarm[n].p/(2 * PARTICLE_MASS);
+	swarm[n].p = sqrt(swarm[n].p);
+
+	/* Sistema. */
+	sys->u += swarm[n].K;
+	
+	/* Calculo la energía con todos los anteriores.*/
+
+	for (k = 0; k < n; ++k) { /* Todas las anteriores. */
+
+	  d_sq = sqrt((swarm[k].x - x) * (swarm[k].x - x) +
+		      (swarm[k].y - y) * (swarm[k].y - y) +
+		      (swarm[k].z - z) * (swarm[k].z - z));
+
+	  sys->u += potencial(d_sq);
+	}	  
 
 	n++;
 	tries = 0;
       }
     }
-
-    /* ¿Hay que calcular polares? 
-       Nota: Ver si es mejor poner esto dentro de cada bucle. (¿Muchos ifs?). */
+    
+    /* ¿Hay que calcular polares? */
 
     if ((flags & INIT_POLAR) != 0) {
 
@@ -172,38 +234,27 @@ initialise(system_t * restrict sys_p, int N,
 	 * en el sentido de que, quizá, la misma STD provea la misma
 	 * precisión. De todas formas, ya que usamos la GSL para los rands... */
 
-	/* Posiciones. */
+	/* Ángulos cenitales. */
+	swarm[n].theta = GSL_REAL(gsl_complex_arccos_real(swarm[n].z/swarm[n].r));
+	swarm[n].p_theta = GSL_REAL(gsl_complex_arccos_real(swarm[n].pz/swarm[n].p));
 
-	sys[n].r = sqrt(sys[n].x * sys[n].x +
-			sys[n].y * sys[n].y +
-			sys[n].z * sys[n].z);
+	/* Ángulos azimutales. */
+	GSL_SET_COMPLEX(&c, swarm[n].x, swarm[n].y);
+	swarm[n].phi = gsl_complex_arg(c);
 
-	/* Ángulo cenital. */
-	sys[n].theta = GSL_REAL(gsl_complex_arccos_real(sys[n].z/sys[n].r));
-
-	/* Ángulo azimutal. */
-	GSL_SET_COMPLEX(&c, sys[n].x, sys[n].y);
-	sys[n].phi = gsl_complex_arg(c);
-
-	/* Momentos. */
-	sys[n].p = sqrt(sys[n].px * sys[n].px +
-			sys[n].py * sys[n].py +
-			sys[n].pz * sys[n].pz);
-
-	sys[n].p_theta = GSL_REAL(gsl_complex_arccos_real(sys[n].pz/sys[n].p));
-
-	GSL_SET_COMPLEX(&c, sys[n].px, sys[n].py);
-	sys[n].p_phi = gsl_complex_arg(c);
+	GSL_SET_COMPLEX(&c, swarm[n].px, swarm[n].py);
+	swarm[n].p_phi = gsl_complex_arg(c);
       }
     }
   }
 }
 
 ssize_t
-save_state (const char *path, system_t state, size_t size_n, int table) {
+save_state (const char *path, system_t * restrict state, int table) {
 
   int fbin, n;
   ssize_t cwrote, wrote;
+  size_t total;
   int8_t *buff;
   FILE *ftable;
   char *tpath;
@@ -218,13 +269,16 @@ save_state (const char *path, system_t state, size_t size_n, int table) {
     if (ftable == NULL)
       ftable = stdout;
 
-    for (n = 0; n < size_n; ++n)
+    fprintf(ftable, "# particula K x y z r theta phi px py pz p p_theta p_phi\n");
+
+    for (n = 0; n < state->N; ++n)
       fprintf(ftable, "%3i %.5f %.5f %.5f %.5f %.5f %.5f "
-	      "%.5f %.5f %.5f %.5f %.5f %.5f\n",
-	      n, state[n].x, state[n].y, state[n].z,
-	      state[n].r, state[n].theta, state[n].phi,
-	      state[n].px, state[n].py, state[n].pz,
-	      state[n].p, state[n].p_theta, state[n].p_phi);
+	      "%.5f %.5f %.5f %.5f %.5f %.5f %.5f\n",
+	      n, state->swarm[n].K,
+	      state->swarm[n].x, state->swarm[n].y, state->swarm[n].z,
+	      state->swarm[n].r, state->swarm[n].theta, state->swarm[n].phi,
+	      state->swarm[n].px, state->swarm[n].py, state->swarm[n].pz,
+	      state->swarm[n].p, state->swarm[n].p_theta, state->swarm[n].p_phi);
       
     fflush(ftable);
     if (ftable != stdout)
@@ -242,13 +296,19 @@ save_state (const char *path, system_t state, size_t size_n, int table) {
 
   if (fbin > 0) {
 
-    buff = (int8_t *)state;
-    size_n *= sizeof(particle_t);
+    /* Formato en bloque: guarda las propiedades y luego el enjambre.
+     * Nota: guarda también la dirección del puntero `*swarm'. */
+
+    write(fbin, state, sizeof(system_t)); /* Propiedades. */
+    fsync(fbin);
+
     wrote = 0;
+    buff = (int8_t *)state->swarm;
+    total = state->N * sizeof(particle_t);
 
     do {
 
-      cwrote = write(fbin, buff + wrote , size_n - wrote);
+      cwrote = write(fbin, buff + wrote , total - wrote);
 
       if (cwrote < 0) { /* En caso de error, deja de escribir y cierra. */
 	close(fbin);
@@ -256,7 +316,7 @@ save_state (const char *path, system_t state, size_t size_n, int table) {
       }
       
       wrote += cwrote;
-    } while (wrote < size_n);
+    } while (wrote < total);
 
     /* Cierra (si no se hizo antes). */
     if (cwrote >= 0)
@@ -266,80 +326,69 @@ save_state (const char *path, system_t state, size_t size_n, int table) {
   if (tpath != path)
     free(tpath);
   
-  return wrote;
+  return (wrote + sizeof(system_t));
 }
 
 ssize_t
-load_state(const char *path, system_t * restrict state, size_t size_n) {
+load_state(const char *path, system_t * restrict state, int swarm) {
 
-  int fdes;
-  off_t flen;
-  int8_t *buff;
-  ssize_t sread, cread;
+  //////////////////////// TODO ///////////////////////
 
-  /* Lee el estado almacenado en `path' directamente sobre `state'. */
+/*   int fdes; */
+/*   off_t flen; */
+/*   int8_t *buff; */
+/*   ssize_t sread, cread; */
 
-  sread = -1;
-  fdes = open(path, O_RDONLY);
+/*   /\* Lee el estado almacenado en `path' directamente sobre `state'. */
+/*    * Es importante preservar el orden de la estructura `system', por */
+/*    * condiciones de `padding' y alineamiento (al parecer). *\/ */
+
+/*   sread = -1; */
+/*   fdes = open(path, O_RDONLY); */
   
-  if (fdes > 0) {
+/*   if (fdes > 0) { */
 
-    /* Busca el tamaño del archivo usando `lseek'; si hay un error,
-     * calcula la cantidad de bytes a leer usando el parámetro size_n.
-     *
-     * Importante:
-     *
-     *   1. Si `state' es un bloque ya alojado debe ser suficientemente
-     *      grande como para alojar la cantidad de bytes en el archivo o
-     *      (si no se pudiera hallar esta cantidad con `lseek') calculados
-     *      con `size_n'.
-     *
-     *   2. Si existe alguna diferencia en el estado almacenado y el estado
-     *      especificado mediante `size_n', o si se leen menos bytes desde
-     *      el archivo, es posible que la estructura en state[0] esté
-     *      __a medio escribir__. Tener cuidado con esto.
-     */
 
-    flen = lseek(fdes, 0, SEEK_END);
+/*     if (flen < 0) */
+/*       size_n *= sizeof(particle_t); */
+/*     else */
+/*       size_n = flen; */
 
-    if (flen < 0)
-      size_n *= sizeof(particle_t);
-    else
-      size_n = flen;
+/*     lseek(fdes, 0, SEEK_SET); */
 
-    lseek(fdes, 0, SEEK_SET);
+/*     if (*state == NULL) /\* Hay que alojar un bloque nuevo. *\/ */
+/*       *state = (system_t)malloc(size_n); */
 
-    if (*state == NULL) /* Hay que alojar un bloque nuevo. */
-      *state = (system_t)malloc(size_n);
+/*     if (*state != NULL) { */
 
-    if (*state != NULL) {
+/*       /\* Lee bloques de bytes del archivo y va copiándolos a memoria. *\/ */
+/*       buff = (int8_t *)(*state); */
+/*       sread = 0; */
 
-      /* Lee bloques de bytes del archivo y va copiándolos a memoria. */
-      buff = (int8_t *)(*state);
-      sread = 0;
+/*       do { */
 
-      do {
+/* 	cread = read(fdes, buff + sread, size_n - sread); */
 
-	cread = read(fdes, buff + sread, size_n - sread);
+/* 	/\* En caso de error, deja de leer inmediatamente y cierra */
+/* 	 * el archivo. La cantidad de bytes devueltos (por la rutina) */
+/* 	 * indica el total de bytes leídos. *\/ */
 
-	/* En caso de error, deja de leer inmediatamente y cierra
-	 * el archivo. La cantidad de bytes devueltos (por la rutina)
-	 * indica el total de bytes leídos. */
-
-	if (cread < 0) {
-	  close(fdes);
-	  break;
-	}
+/* 	if (cread < 0) { */
+/* 	  close(fdes); */
+/* 	  break; */
+/* 	} */
 	
-	sread += cread;
+/* 	sread += cread; */
 
-      } while (cread > 0 && sread < size_n);
+/*       } while (cread > 0 && sread < size_n); */
 
-      /* Cierra el archivo (si no se hizo antes). */
-      if (cread >= 0)
-	close(fdes);
-    }
-  }
+/*       /\* Cierra el archivo (si no se hizo antes). *\/ */
+/*       if (cread >= 0) */
+/* 	close(fdes); */
+/*     } */
+/*   } */
 
-  return sread;
+/*   return sread; */
+/* } */
+
 }
