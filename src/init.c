@@ -248,6 +248,9 @@ initialise(system_t * restrict sys, unsigned int N,
 	swarm[n].p_phi = gsl_complex_arg(c);
       }
     }
+
+    if (p_rng != rng)
+      gsl_rng_free(p_rng);
   }
 }
 
