@@ -3,7 +3,7 @@
 #include "table.h"
 #include <stdlib.h>
 
-#define RMAX 10
+#define RMAX 3
 #define SIGMA 2.5
 #define DELTA 0.01
 #define ROUT 3
@@ -60,7 +60,7 @@ double potencial(double r){
     return v;
 }
 
-int load_table(float **tpot, float **tforce){
+int load_table(float ***tpot, float ***tforce){
     FILE * tabla_potencial = fopen("tabla_potencial.dat","r");
     FILE * tabla_fuerza = fopen("tabla_fuerza.dat","r");
 
@@ -69,42 +69,65 @@ int load_table(float **tpot, float **tforce){
     float temp1, temp2;
     while(EOF != fscanf(tabla_potencial, " %f %f",  &temp1, &temp2))
     {
-        printf("prmero %f segundo %f\n", temp1, temp2);
         lineas++;
     }
-    tpot = malloc(sizeof(float)*lineas);
-    if (tpot)
+
+    *tpot = malloc(sizeof(float *)*lineas);
+    for (i = 0; i < lineas; i++)
     {
-        for (i = 0; i < lineas; i++)
-        {
-            tpot[i] = malloc(sizeof(float)*2);
-        }
+        (*tpot)[i] = malloc(sizeof(float)*2);
     }
+
     rewind(tabla_potencial);
     i = 0;
-    while( EOF != fscanf(tabla_potencial, " %f %f", &tpot[i][0], &tpot[i][1])){
+    printf("lineas %d\n", lineas);
+    while( EOF != fscanf(tabla_potencial, " %f %f", &(*tpot)[i][0], &(*tpot)[i][1])){
+        printf("%f %i\n", (*tpot)[i][0], i);
         i++;
     }
 
-    tpot = malloc(sizeof(float)*lineas);
-    if (tforce)
+    *tforce = malloc(sizeof(float *)*lineas);
+    for (i = 0; i < lineas; i++)
     {
-        for (i = 0; i < lineas; i++)
-        {
-            tforce[i] = malloc(sizeof(float)*2);
-        }
+        (*tforce)[i] = malloc(sizeof(float)*2);
     }
+
     i = 0;
-    while( EOF != fscanf(tabla_fuerza, " %f %f", &tforce[i][0], &tforce[i][1])){i++;}
+    while( EOF != fscanf(tabla_fuerza, " %f %f", &(*tforce)[i][0], &(*tforce)[i][1])){i++;}
     
 
     return lineas;
 }
 
-//double apppot(double *tpot, double r){
-//    return potencial;
-//}
-//
-//double appforce(double *tforce, double r){
-//    return fuerza;
-//}
+double apppot(float **tpot, double r){
+
+    if(r>ROUT) return (double) 0.0;
+    float h = tpot[1][0] - tpot[0][0];
+    int candidato = (int)floor(r/h);
+    float potencial;
+    if(tpot[candidato][0] == (float)r){
+        return (double) tpot[candidato][1];
+    }else{
+        float pendiente = (tpot[candidato+1][1]-tpot[candidato][1])/(tpot[candidato+1][0]-tpot[candidato][0]);
+        potencial = tpot[candidato][1] + pendiente * (r - tpot[candidato][0]);
+
+    }
+
+    return (double) potencial;
+}
+
+double appforce(float **tforce, double r){
+
+    if(r>ROUT) return (double) 0.0;
+    float h = tforce[1][0] - tforce[0][0];
+    int candidato = (int)floor(r/h);
+    float fuerza;
+    if(tforce[candidato][0] == (float)r){
+        return (double) tforce[candidato][1];
+    }else{
+        float pendiente = (tforce[candidato+1][1]-tforce[candidato][1])/(tforce[candidato+1][0]-tforce[candidato][0]);
+        fuerza = tforce[candidato][1] + pendiente * (r - tforce[candidato][0]);
+    }
+
+    return (double) fuerza;
+}
