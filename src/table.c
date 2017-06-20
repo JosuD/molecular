@@ -59,3 +59,52 @@ double potencial(double r){
     }
     return v;
 }
+
+int load_table(float **tpot, float **tforce){
+    FILE * tabla_potencial = fopen("tabla_potencial.dat","r");
+    FILE * tabla_fuerza = fopen("tabla_fuerza.dat","r");
+
+    int i = 0;
+    int lineas = 0;
+    float temp1, temp2;
+    while(EOF != fscanf(tabla_potencial, " %f %f",  &temp1, &temp2))
+    {
+        printf("prmero %f segundo %f\n", temp1, temp2);
+        lineas++;
+    }
+    tpot = malloc(sizeof(float)*lineas);
+    if (tpot)
+    {
+        for (i = 0; i < lineas; i++)
+        {
+            tpot[i] = malloc(sizeof(float)*2);
+        }
+    }
+    rewind(tabla_potencial);
+    i = 0;
+    while( EOF != fscanf(tabla_potencial, " %f %f", &tpot[i][0], &tpot[i][1])){
+        i++;
+    }
+
+    tpot = malloc(sizeof(float)*lineas);
+    if (tforce)
+    {
+        for (i = 0; i < lineas; i++)
+        {
+            tforce[i] = malloc(sizeof(float)*2);
+        }
+    }
+    i = 0;
+    while( EOF != fscanf(tabla_fuerza, " %f %f", &tforce[i][0], &tforce[i][1])){i++;}
+    
+
+    return lineas;
+}
+
+//double apppot(double *tpot, double r){
+//    return potencial;
+//}
+//
+//double appforce(double *tforce, double r){
+//    return fuerza;
+//}
