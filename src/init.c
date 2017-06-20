@@ -156,11 +156,15 @@ initialise(system_t * restrict sys, unsigned int N,
 
       tries = 0; /* Intentos. */
 
-      swarm[0].x = L * gsl_rng_uniform(rng) - L/2;
-      swarm[0].y = L * gsl_rng_uniform(rng) - L/2;
-      swarm[0].z = L * gsl_rng_uniform(rng) - L/2;
+      /* swarm[0].x = L * gsl_rng_uniform(rng) - L/2; */
+      /* swarm[0].y = L * gsl_rng_uniform(rng) - L/2; */
+      /* swarm[0].z = L * gsl_rng_uniform(rng) - L/2; */
 
-      for (n = 1; n < N;) {
+      /* swarm[n].px = gsl_ran_gaussian(p_rng, sigma); */
+      /* swarm[n].py = gsl_ran_gaussian(p_rng, sigma); */
+      /* swarm[n].pz = gsl_ran_gaussian(p_rng, sigma); */
+
+      for (n = 0; n < N;) {
 
 	x = L * gsl_rng_uniform(rng) - L/2;
 	y = L * gsl_rng_uniform(rng) - L/2;
@@ -210,8 +214,6 @@ initialise(system_t * restrict sys, unsigned int N,
 	/* Sistema. */
 	sys->u += swarm[n].K;
 	
-	/* Calculo la energía con todos los anteriores.*/
-
 	for (k = 0; k < n; ++k) { /* Todas las anteriores. */
 
 	  d_sq = sqrt((swarm[k].x - x) * (swarm[k].x - x) +
