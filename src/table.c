@@ -22,6 +22,7 @@ int gen_tabla(){
         fprintf(tabla_potencial, "%f %f\n", r, potencial(r));
     }
     fclose(tabla_fuerza);
+    fclose(tabla_potencial);
     return 0;
 }
 
@@ -80,9 +81,7 @@ int load_table(float ***tpot, float ***tforce){
 
     rewind(tabla_potencial);
     i = 0;
-    printf("lineas %d\n", lineas);
     while( EOF != fscanf(tabla_potencial, " %f %f", &(*tpot)[i][0], &(*tpot)[i][1])){
-        printf("%f %i\n", (*tpot)[i][0], i);
         i++;
     }
 
