@@ -46,6 +46,18 @@ void verlet(system_t * sys, unsigned int N, double L, float **tforce, double dt)
         swarm[n].py = swarm[n].py + (force_y+force_ydt)*dt/2;
         swarm[n].pz = swarm[n].pz + (force_z+force_zdt)*dt/2;
 
+        swarm[n].r = sqrt(swarm[n].x * swarm[n].x +
+                  swarm[n].y * swarm[n].y +
+                  swarm[n].z * swarm[n].z);
+
+        swarm[n].p = swarm[n].px * swarm[n].px +
+            swarm[n].py * swarm[n].py +
+          swarm[n].pz * swarm[n].pz;
+        
+        swarm[n].K = swarm[n].p/(2 * PARTICLE_MASS);
+        swarm[n].p = sqrt(swarm[n].p);
+
+
     }
 }
 

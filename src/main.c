@@ -8,6 +8,8 @@
 #include <math.h>
 
 #include "init.h"
+#include "table.h"
+#include "verlet.h"
 
 /* Algoritmo de Verlet (`Velocity Verlet'):
 
@@ -58,6 +60,9 @@ int main (int argc, char *argv[]) {
     	     sys.swarm[n].px, sys.swarm[n].py, sys.swarm[n].pz,
     	     sys.swarm[n].p, sys.swarm[n].p_theta, sys.swarm[n].p_phi);
     
+    float **tpot, **tforce;
+    load_table(&tpot, &tforce);
+    verlet(&sys, N, 40, tforce, 0.1); 
     sys_free(&sys);
 
     /* initialise(&sys, N, 40, 10, 0, rng, INIT_SEITZ); */
