@@ -39,6 +39,10 @@ void verlet(system_t * sys, unsigned int N, double L, float **tforce, double dt)
         swarm[n].x = swarm[n].x + swarm[n].px*dt+force_x*dt*dt/2;
         swarm[n].y = swarm[n].y + swarm[n].py*dt+force_y*dt*dt/2;
         swarm[n].z = swarm[n].z + swarm[n].pz*dt+force_z*dt*dt/2;
+//condiciones periodicas de contorno
+        swarm[n].x = swarm[n].x - L*floor((swarm[n].x+L/2)/L);
+        swarm[n].y = swarm[n].x - L*floor((swarm[n].x+L/2)/L);
+        swarm[n].z = swarm[n].x - L*floor((swarm[n].x+L/2)/L);
 
         fuerza_vec(swarm, &force_xdt, &force_ydt, &force_zdt, N, n, tforce);
 
@@ -81,6 +85,7 @@ void fuerza_vec(particle_t *swarmc,
         dir_y = (swarmc[m].y-swarmc[n].y)/distancia;
         dir_z = (swarmc[m].y-swarmc[n].z)/distancia;
        force = appforce(tforce, distancia);
+//       printf("fuerza %f, distancia %f\n", force, distancia);
        *force_x += dir_x * force;
        *force_y += dir_y * force;
        *force_z += dir_z * force;
