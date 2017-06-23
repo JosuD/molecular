@@ -98,9 +98,9 @@ void vecf(particle_t *swarmc,double *force_x, double *force_y, double *force_z, 
         double force = 0;
         distancia = sqrt(pow(swarmc[m].x+a*L-swarmc[n].x,2)+pow(swarmc[m].y+b*L-swarmc[n].y,2)+pow(swarmc[m].z+c*L-swarmc[n].z,2));
     if(distancia<ROUT) {
-        dir_x = (swarmc[m].x-swarmc[n].x)/distancia;
-        dir_y = (swarmc[m].y-swarmc[n].y)/distancia;
-        dir_z = (swarmc[m].z-swarmc[n].z)/distancia;
+        dir_x = (swarmc[m].x+a*L-swarmc[n].x)/distancia;
+        dir_y = (swarmc[m].y+b*L-swarmc[n].y)/distancia;
+        dir_z = (swarmc[m].z+c*L-swarmc[n].z)/distancia;
        force = appforce(tforce, distancia);
        printf("fuerza %f, distancia %f\n", force, distancia);
        *force_x += dir_x * force;
