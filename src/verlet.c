@@ -40,9 +40,9 @@ void verlet(system_t * sys, unsigned int N, double L, float **tforce, double dt)
         swarm[n].y = swarm[n].y + swarm[n].py*dt+force_y*dt*dt/2;
         swarm[n].z = swarm[n].z + swarm[n].pz*dt+force_z*dt*dt/2;
 //condiciones periodicas de contorno
-        swarm[n].x = swarm[n].x - L*floor((swarm[n].x+L/2)/L);
-        swarm[n].y = swarm[n].x - L*floor((swarm[n].x+L/2)/L);
-        swarm[n].z = swarm[n].x - L*floor((swarm[n].x+L/2)/L);
+        swarm[n].x = fabs(swarm[n].x) - L*floor(fabs(swarm[n].x)/L);
+        swarm[n].y = fabs(swarm[n].y) - L*floor(fabs(swarm[n].y)/L);
+        swarm[n].z = fabs(swarm[n].z) - L*floor(fabs(swarm[n].z)/L);
 
         fuerza_vec(swarm, &force_xdt, &force_ydt, &force_zdt, N, n, tforce, L );
 
