@@ -26,12 +26,7 @@ void verlet(system_t * sys, unsigned int N, double L, float **tforce, double dt)
         swarmc[n].px = swarm[n].px;
         swarmc[n].py = swarm[n].py;
         swarmc[n].pz = swarm[n].pz;
-        swarmc[n].r = swarm[n].r;
-        swarmc[n].theta = swarm[n].theta;
-        swarmc[n].phi = swarm[n].phi;
-        swarmc[n].p = swarm[n].p;
-        swarmc[n].p_theta = swarm[n].p_theta;
-        swarmc[n].p_phi = swarm[n].p_phi;
+        swarmc[n].p = 0;
     }
     for(n = 0; n < N; n++){
         fuerza_vec(swarmc, &force_x, &force_y, &force_z, N, n, tforce, L);
@@ -50,9 +45,9 @@ void verlet(system_t * sys, unsigned int N, double L, float **tforce, double dt)
         swarm[n].py = swarm[n].py + (force_y+force_ydt)*dt/2;
         swarm[n].pz = swarm[n].pz + (force_z+force_zdt)*dt/2;
 
-        swarm[n].r = sqrt(swarm[n].x * swarm[n].x +
-                  swarm[n].y * swarm[n].y +
-                  swarm[n].z * swarm[n].z);
+ //       swarm[n].r = sqrt(swarm[n].x * swarm[n].x +
+//                  swarm[n].y * swarm[n].y +
+//                  swarm[n].z * swarm[n].z);
 
         swarm[n].p = swarm[n].px * swarm[n].px +
             swarm[n].py * swarm[n].py +
@@ -70,7 +65,6 @@ void fuerza_vec(particle_t *swarmc,
         double *force_x, double *force_y, double *force_z,
         int N, int n, float **tforce, int L)
 {
-    double force = 0;
     *force_x = 0, *force_y = 0, *force_z = 0;
     int m;
     int a, b, c;
