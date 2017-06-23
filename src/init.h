@@ -25,12 +25,18 @@ struct particle {
 typedef struct particle particle_t;
 
 struct system {
-  unsigned int N;
-  double kT, u;
+  unsigned int N, L;
+  double kT, u, rho;
   particle_t *swarm;
 };
 
 typedef struct system system_t;
+
+enum spatial_dist {
+  SP_UNIFORM_RAND,
+  SP_UNIFORM_RAND_THRESHOLD,
+  SP_UNIFORM_GRID
+};
 
 /* Opciones. */
 #define INIT_P_GEN  ((int)1)
@@ -38,25 +44,7 @@ typedef struct system system_t;
 
 /* Rutinas. */
 
-/* initialise -- inicia el sistema pasado en system_t:
- *
- * Argumentos:
- *   system_t *  : puntero a una estructura de tipo system_t.
- *   unsigned int: cantidad de partículas.
- *   double      : lado del cubo de la caja contenedora (en unidades de sigma).
- *   double      : kT -- Temperatura.
- *   double      : umbral. 
- *               : Si es < 0: no se usa un umbral.
- *               : si es = 0: se usa el Radio de Seitz.
- *               : si es > 0: se usa el valor especificado.
- *   gsl_rng *   : estado del generador de números aleatorios.
- *   int         : opciones, definidas más arriba con el prefijo INIT_
- *                 INIT_P_GEN: usa otro generador para los momentos.
- *                 INIT_POLAR: calcula los ángulos en coordenadas polares.
- */
-
-void initialise(system_t * restrict, unsigned int, double, double,
-		double, const gsl_rng * restrict, int);
+void initialise(system_t * restrict, unsigned int, double, double, double, int);
 
 /* save_state -- guarda el estado del sistema en system_t en un archivo binario.
  *

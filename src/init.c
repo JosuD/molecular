@@ -21,238 +21,109 @@
 
 void
 initialise(system_t * restrict sys, unsigned int N,
-	   double L, double kT, double thresh,
-	   const gsl_rng *restrict rng, int flags) {
+	   double rho, double kT, double thresh, int flags) {
   
   int tries, n, k;
   unsigned long seed;
   double sigma;
   FILE *frand;
   register particle_t *swarm;
-  double d_sq, x, y, z;
-  gsl_rng *p_rng;
+  double d_sq, x, y, z, dl, L;
+  gsl_rng *rng;
   gsl_complex c;
-  
-  /* IMPORTANTE: POR AHORA, EL RADIO DE SEITZ LO CALCULA PARA 2D,
-   * PERO EL RESTO LO HACE PARA 3D. */
 
   /* Radio de Seitz:
-   * 
    * 2D: rs^2 = L^2/(PI * N).
    * 3D: rs^3 = 3 * L^3/(4 * PI * N).
-   *
    */
 
-  const double rs_sq = L * L/(M_PI * N);
+  const double rs = cbrt(3/(4 * M_PI * rho));
  
   sys->swarm = (particle_t *)calloc(N, sizeof(particle_t));
+  rng = gsl_rng_alloc(gsl_rng_ranlxs2);
+
   swarm = sys->swarm;
 
-  if (swarm != NULL) {
+  if (swarm != NULL && rng != NULL) {
 
-    /* Propiedades. */
+    frand = fopen("/dev/urandom", "r");
+      
+    if (frand != NULL) {
+      fread(&seed, sizeof(unsigned long), 1, frand);
+      fclose(frand);
+    }
+    else
+      seed = (unsigned long)time(NULL);
+
+    gsl_rng_set(rng, seed);
+
+    // La estimación es aproximadamente ~ L/cbrt(N) = 1/cbrt(rho).
+    // dl es el diferencial de longitud
+
+    /* Propiedades del sistema. */
 
     sys->N = N;
+    sys->L = L;
     sys->kT = kT;
     sys->u = 0;
 
-    if (thresh == 0)
-      thresh = rs_sq; /* Usa el radio de Seitz como thresh. */
-    
-    if ((flags & INIT_P_GEN) != 0) {
-      
-      /* Usa otro generador para las velocidades (a partir
-	 del existente). Inicializa con una nueva semilla. */
-
-      p_rng = gsl_rng_clone(rng);
-      frand = fopen("/dev/urandom", "r");
-
-      if (frand != NULL) {
-	fread(&seed, sizeof(unsigned long), 1, frand);
-	gsl_rng_set(p_rng, seed); /* Nueva semilla. */
-	fclose(frand);
-      }
-      else
-	gsl_rng_set(p_rng, (unsigned long)time(NULL));
-    }
-    else
-      p_rng = rng;
-
-    /* .:: Distribución espacial y de velocidades ::. */
+    n = 0;
+    L = cbrt(N/rho);
+    dl = 1/(cbrt(rho) + 2/L);
 
     sigma = sqrt(PARTICLE_MASS * kT);
 
-    if (thresh < 0) { /* Para agilizar... */
+    for (x = dl; x <= L - dl; x += dl) {
 
-      for (n = 0; n < N; n++) {
+      for (y = dl; y <= L - dl ; y += dl) {
 
-	/* Espacial. */
+	for (z = dl; z <= L - dl; z += dl) {
 
-	swarm[n].x = L * gsl_rng_uniform(rng) - L/2;
-	swarm[n].y = L * gsl_rng_uniform(rng) - L/2;
-	swarm[n].z = L * gsl_rng_uniform(rng) - L/2;
-	
-	/* De momentos. */
+	  // Ubica las partículas.
+	  swarm[n].x = x;
+	  swarm[n].y = y;
+	  swarm[n].z = z;
+	  
+	  /* Momentos. */
+	  swarm[n].px = gsl_ran_gaussian(rng, sigma);
+	  swarm[n].py = gsl_ran_gaussian(rng, sigma);
+	  swarm[n].pz = gsl_ran_gaussian(rng, sigma);
 
-	swarm[n].px = gsl_ran_gaussian(p_rng, sigma);
-	swarm[n].py = gsl_ran_gaussian(p_rng, sigma);
-	swarm[n].pz = gsl_ran_gaussian(p_rng, sigma);
+	  /* Energía. */
+	  
+	  /* Partícula. */
+	  swarm[n].r = sqrt(x * x + y * y + z * z);
+	  swarm[n].p = swarm[n].px * swarm[n].px +
+	    swarm[n].py * swarm[n].py +
+	    swarm[n].pz * swarm[n].pz;
 
-	/* Para la energía, es necesario hallar |p| y |r|, por lo que
-	 * se calculan aún si INIT_POLAR no está en `flags'. */
+	  swarm[n].K = swarm[n].p/(2 * PARTICLE_MASS);
+	  swarm[n].p = sqrt(swarm[n].p);
 
-	swarm[n].r = sqrt(swarm[n].x * swarm[n].x +
-			  swarm[n].y * swarm[n].y +
-			  swarm[n].z * swarm[n].z);
+	  /* Sistema. */
+	  sys->u += swarm[n].K;
 
-	/* En realidad, se calcula |p|^2 para la energía y 
-	 * luego se toma la raíz. */
-	swarm[n].p = swarm[n].px * swarm[n].px +
-	  swarm[n].py * swarm[n].py +
-	  swarm[n].pz * swarm[n].pz;
-	
-	/* .:: Energía ::. */
+	  for (k = 0; k < n; ++k) { /* Todas las anteriores. */
 
-	/* Partícula. */
-	swarm[n].K = swarm[n].p/(2 * PARTICLE_MASS);
-	swarm[n].p = sqrt(swarm[n].p);
+	    d_sq = sqrt((swarm[k].x - x) * (swarm[k].x - x) +
+		    (swarm[k].y - y) * (swarm[k].y - y) +
+		    (swarm[k].z - z) * (swarm[k].z - z));
 
-	/* Sistema. */
-	sys->u += swarm[n].K;
+	    sys->u += potencial(d_sq);
+	  }	  
 
-	for (k = 0; k < n; ++k) { /* Potencial (con todos los anteriores). */
+	  n++;
+	  if (n > 511)
+	    goto _a;
 
-	  /* En este caso, no es `sq' :-D */
-	  d_sq = sqrt((swarm[k].x - swarm[n].x) * (swarm[k].x - swarm[n].x) +
-		      (swarm[k].y - swarm[n].y) * (swarm[k].y - swarm[n].y) +
-		      (swarm[k].z - swarm[n].z) * (swarm[k].z - swarm[n].z));
-
-	  sys->u += potencial(d_sq);
-	}	  
-      }
-    }
-    else { /* Hay que aplicar un umbral. */
-
-      /* El procedimiento consiste en:
-       *
-       * 1. Generar un punto nuevo (x, y, z) ___bajo la suposición___ de que
-       *    inicialmente, las posiciones de las partículas son estadísticamente
-       *    independientes, por lo que se puede construir la posición a través de
-       *    una muestra de tres números consecutivos del generador `gsl_rng_uniform'.
-       *
-       * 2. Comparar la distancia de este nuevo `centro' de partícula a las generadas
-       *    anteriormente, con el thresh. Si la distancia es menor a este último 
-       *    (esto es, si ambas partículas se encuentran en el mismo volumen), se
-       *    descarta la terna generada `(x, y, z)' y se re-intenta con una nueva.
-       *    El proceso se repite una cantidad de veces `INIT_MAX_TRIES', para evitar
-       *    generar bucles infinitos. Si la densidad es muy alta, puede que se alcance
-       *    rápido este límite. En cualquier caso, si se supera el límite de intentos,
-       *    se guarda la posición generada aunque no cumpla con la condición de separación
-       *    impuesta por el thresh. En todos los casos, el thresh es esférico, centrado
-       *    en cada una de las ternas anteriormente generadas.
-       *
-       * 3. Se guarda la terna y se calculan las coordenadas polares (si así se desea).
-       */
-
-      tries = 0; /* Intentos. */
-
-      /* swarm[0].x = L * gsl_rng_uniform(rng) - L/2; */
-      /* swarm[0].y = L * gsl_rng_uniform(rng) - L/2; */
-      /* swarm[0].z = L * gsl_rng_uniform(rng) - L/2; */
-
-      /* swarm[n].px = gsl_ran_gaussian(p_rng, sigma); */
-      /* swarm[n].py = gsl_ran_gaussian(p_rng, sigma); */
-      /* swarm[n].pz = gsl_ran_gaussian(p_rng, sigma); */
-
-      for (n = 0; n < N;) {
-
-	x = L * gsl_rng_uniform(rng) - L/2;
-	y = L * gsl_rng_uniform(rng) - L/2;
-	z = L * gsl_rng_uniform(rng) - L/2;
-
-	for (k = 0; k < n; k++) {
-	
-	  /* Distancia cuadrática entre ambos centros. */
-
-	  d_sq = (swarm[k].x - x) * (swarm[k].x - x) +
-	    (swarm[k].y - y) * (swarm[k].y - y);
-	    //	    (swarm[k].z - z) * (swarm[k].z - z);
-	
-	  if (d_sq < thresh) /* muy cerca... */
-	    break;
 	}
-	
-	if (k < n && tries < INIT_MAX_TRIES) {
-	  /* Intentos...tampoco esto debe convertirse en un bucle infinito. */
-	  tries++; 
-	  continue;
-	}
-
-	/* Almacena las ternas. */
-
-	/* Posiciones. */
-	swarm[n].x = x;
-	swarm[n].y = y;
-	swarm[n].z = z;
-
-	/* Momentos. */
-	swarm[n].px = gsl_ran_gaussian(p_rng, sigma);
-	swarm[n].py = gsl_ran_gaussian(p_rng, sigma);
-	swarm[n].pz = gsl_ran_gaussian(p_rng, sigma);
-
-	/* .:: Energía ::. */
-
-	/* Partícula. */
-	swarm[n].r = sqrt(x * x + y * y + z * z);
-	swarm[n].p = swarm[n].px * swarm[n].px +
-	  swarm[n].py * swarm[n].py +
-	  swarm[n].pz * swarm[n].pz;
-
-	swarm[n].K = swarm[n].p/(2 * PARTICLE_MASS);
-	swarm[n].p = sqrt(swarm[n].p);
-
-	/* Sistema. */
-	sys->u += swarm[n].K;
-	
-	for (k = 0; k < n; ++k) { /* Todas las anteriores. */
-
-	  d_sq = sqrt((swarm[k].x - x) * (swarm[k].x - x) +
-		      (swarm[k].y - y) * (swarm[k].y - y) +
-		      (swarm[k].z - z) * (swarm[k].z - z));
-
-	  sys->u += potencial(d_sq);
-	}	  
-
-	n++;
-	tries = 0;
-      }
-    }
-    
-    /* ¿Hay que calcular polares? */
-
-    if ((flags & INIT_POLAR) != 0) {
-
-      for (n = 0; n < N; ++n) {
-
-	/* Tal vez no haga falta usar la GSL para calcular los ángulos;
-	 * en el sentido de que, quizá, la misma STD provea la misma
-	 * precisión. De todas formas, ya que usamos la GSL para los rands... */
-
-	/* Ángulos cenitales. */
-	swarm[n].theta = GSL_REAL(gsl_complex_arccos_real(swarm[n].z/swarm[n].r));
-	swarm[n].p_theta = GSL_REAL(gsl_complex_arccos_real(swarm[n].pz/swarm[n].p));
-
-	/* Ángulos azimutales. */
-	GSL_SET_COMPLEX(&c, swarm[n].x, swarm[n].y);
-	swarm[n].phi = gsl_complex_arg(c);
-
-	GSL_SET_COMPLEX(&c, swarm[n].px, swarm[n].py);
-	swarm[n].p_phi = gsl_complex_arg(c);
       }
     }
 
-    if (p_rng != rng)
-      gsl_rng_free(p_rng);
+  _a:    
+    printf("Delta l:%i/%i.\n", n, N);
+
+    gsl_rng_free(rng);
   }
 }
 
