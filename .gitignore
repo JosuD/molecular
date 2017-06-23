@@ -23,3 +23,8 @@ molecular_dbg
 
 src/*.o
 datos/
+
+# .:: Ejecutables de prueba ::.
+
+src/prueba*
+
