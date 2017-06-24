@@ -11,21 +11,14 @@
 #include "table.h"
 #include "verlet.h"
 
-/* Algoritmo de Verlet (`Velocity Verlet'):
-
-   r(t + dt) = r(t) + v(t) * dt + (dt^2/2m) * f(t)
-   v(t + dt) = v(t) + dt/2m * [ f(t) + f(t + dt) ]
-*/
-
-
 int main (int argc, char *argv[]) {
 
-  int i, N;
+  int i, j, N;
   system_t sys;
 
   /* N = strtol(argv[1], NULL, 10); */
 
-  N = 255;
+  N = 512;
 
   /* Argumentos: 
    * Puntero a system_t.
@@ -41,11 +34,9 @@ int main (int argc, char *argv[]) {
    */
 
   /* Devuelve el número de partículas agregadas. */
-  i = initialise(&sys, N, 0.12, 1, SP_GRID, 0.8);
-  printf("Agregadas: %3i/%3i.\n", i, N);
+  i = initialise(&sys, N, 0.8442, 1, SP_GRID, 0);
 
-
-  sys_free(&sys);
+  /* Descomentar si se quiere guardar una tabla. */
 
   /* FILE *tabla; */
   /* tabla = fopen("tabla.dat", "w"); */
@@ -53,10 +44,34 @@ int main (int argc, char *argv[]) {
   /* for (i = 0; i < N; ++i) { */
   /*   fprintf(tabla, "%.4f %.4f %.4f\n", sys.swarm[i].x, */
   /* 	    sys.swarm[i].y, sys.swarm[i].z); */
+
+  /*     printf("%.3f\n", sys.swarm[i].px * sys.swarm[i].px + */
+  /* 	     sys.swarm[i].py * sys.swarm[i].py + */
+  /* 	     sys.swarm[i].pz * sys.swarm[i].pz); */
+
   /* } */
 
   /* fflush(tabla); */
   /* fclose(tabla); */
+
+  printf("Agregadas: %3i/%3i.\n", i, N);
+
+  float **tforce, **tpot;
+  load_table(&tpot, &tforce);
+
+  for (i = 0; i < 100; i++) {
+    verlet(&sys, N, sys.L, tforce, 1e-4);
+
+    for (j = 0; j < N; j++) /* Imprime |p| para cada partícula */
+      printf("%.3f\n", sys.swarm[j].px * sys.swarm[j].px +
+  	     sys.swarm[j].py * sys.swarm[j].py +
+  	     sys.swarm[j].pz * sys.swarm[j].pz);
+
+    getchar(); // Pausa.
+
+  }
+
+  sys_free(&sys);
 
   return 0;
 }
