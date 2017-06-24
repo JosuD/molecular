@@ -33,18 +33,14 @@ struct system {
 typedef struct system system_t;
 
 enum spatial_dist {
-  SP_UNIFORM_RAND,
-  SP_UNIFORM_RAND_THRESHOLD,
-  SP_UNIFORM_GRID
+  SP_GRID,
+  SP_RAND,
 };
-
-/* Opciones. */
-#define INIT_P_GEN  ((int)1)
-#define INIT_POLAR  ((int)2)
 
 /* Rutinas. */
 
-void initialise(system_t * restrict, unsigned int, double, double, double, int);
+unsigned int initialise(system_t * restrict, unsigned int, double, double,
+			enum spatial_dist, double);
 
 /* save_state -- guarda el estado del sistema en system_t en un archivo binario.
  *

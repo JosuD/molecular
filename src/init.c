@@ -17,11 +17,11 @@
 
 #include "table.h"
 
-#define INIT_MAX_TRIES ((int)100)
+#define INIT_MAX_TRIES ((int)500)
 
-void
-initialise(system_t * restrict sys, unsigned int N,
-	   double rho, double kT, double thresh, int flags) {
+unsigned int
+initialise(system_t * restrict sys, unsigned int N, double rho,
+	   double kT, enum spatial_dist spd, double thresh) {
   
   int tries, n, k;
   unsigned long seed;
@@ -29,38 +29,27 @@ initialise(system_t * restrict sys, unsigned int N,
   FILE *frand;
   register particle_t *swarm;
   double d_sq, x, y, z, dl, L;
-  gsl_rng *rng;
-  gsl_complex c;
-
-  /* Radio de Seitz:
-   * 2D: rs^2 = L^2/(PI * N).
-   * 3D: rs^3 = 3 * L^3/(4 * PI * N).
-   */
-
-  const double rs = cbrt(3/(4 * M_PI * rho));
+  gsl_rng *c_rng, *p_rng;
  
   sys->swarm = (particle_t *)calloc(N, sizeof(particle_t));
-  rng = gsl_rng_alloc(gsl_rng_ranlxs2);
-
   swarm = sys->swarm;
 
-  if (swarm != NULL && rng != NULL) {
+  p_rng = gsl_rng_alloc(gsl_rng_ranlxs2);
+
+  if (swarm != NULL && p_rng != NULL) {
 
     frand = fopen("/dev/urandom", "r");
       
-    if (frand != NULL) {
+    if (frand != NULL)
       fread(&seed, sizeof(unsigned long), 1, frand);
-      fclose(frand);
-    }
     else
       seed = (unsigned long)time(NULL);
 
-    gsl_rng_set(rng, seed);
-
-    // La estimación es aproximadamente ~ L/cbrt(N) = 1/cbrt(rho).
-    // dl es el diferencial de longitud
+    gsl_rng_set(p_rng, seed);
 
     /* Propiedades del sistema. */
+
+    L = cbrt(N/rho);
 
     sys->N = N;
     sys->L = L;
@@ -68,31 +57,114 @@ initialise(system_t * restrict sys, unsigned int N,
     sys->u = 0;
 
     n = 0;
-    L = cbrt(N/rho);
-    dl = 1/(cbrt(rho) + 2/L);
-
     sigma = sqrt(PARTICLE_MASS * kT);
 
-    for (x = dl; x <= L - dl; x += dl) {
+    switch (spd) {
 
-      for (y = dl; y <= L - dl ; y += dl) {
+    case SP_GRID: /* Distribución en grilla no (necesariamente) uniforme. */
 
-	for (z = dl; z <= L - dl; z += dl) {
+      dl = L/ceil(cbrt(N));
 
-	  // Ubica las partículas.
+      /* Distribuye en forma de grilla, no necesariamente
+       * de manera uniforme (esto no preserva la densidad). */
+
+      for (x = dl/2; x < L; x += dl) {
+	for (y = dl/2; y < L; y += dl) {
+	  for (z = dl/2; z < L; z += dl) {
+
+	    /* Ubicación de las partículas en los centros de
+	     * cada uno de los cubos que dividen al volumen. */
+
+	    swarm[n].x = x;
+	    swarm[n].y = y;
+	    swarm[n].z = z;
+	  
+	    /* Momentos. */
+	    swarm[n].px = gsl_ran_gaussian(p_rng, sigma);
+	    swarm[n].py = gsl_ran_gaussian(p_rng, sigma);
+	    swarm[n].pz = gsl_ran_gaussian(p_rng, sigma);
+
+	    /* Energía - Partícula */
+	    swarm[n].p = swarm[n].px * swarm[n].px +
+	      swarm[n].py * swarm[n].py +
+	      swarm[n].pz * swarm[n].pz;
+
+	    swarm[n].K = swarm[n].p/(2 * PARTICLE_MASS);
+	    swarm[n].p = sqrt(swarm[n].p);
+
+	    /* Energía - Sistema. */
+	    sys->u += swarm[n].K;
+
+	    for (k = 0; k < n; ++k) { /* Todas las anteriores. */
+	      
+	      d_sq = sqrt((swarm[k].x - x) * (swarm[k].x - x) +
+			  (swarm[k].y - y) * (swarm[k].y - y) +
+			  (swarm[k].z - z) * (swarm[k].z - z));
+
+	      sys->u += potencial(d_sq);
+	    }
+
+	    if (++n == N) /* No agrega más partículas. */
+	      goto clean_and_return;
+	  }
+	}
+      }
+
+    case SP_RAND: /* Distribución aleatoria (en principio) uniforme. */
+    default:
+
+      if (thresh <= 0) /* Radio de Seitz. */
+	thresh = cbrt(3/(4 * M_PI * rho));
+
+      c_rng = gsl_rng_clone(p_rng);
+
+      if (c_rng != NULL) {
+
+	if (frand != NULL)
+	  fread(&seed, sizeof(unsigned long), 1, frand);
+	else
+	  seed = (unsigned long)time(NULL);
+	
+	gsl_rng_set(c_rng, seed);
+
+	tries = 0; /* Intentos. */
+
+	L -= thresh/2;
+
+	for (n = 0; n < N;) {
+
+	  x = L * gsl_rng_uniform(c_rng) - L/2;
+	  y = L * gsl_rng_uniform(c_rng) - L/2;
+	  z = L * gsl_rng_uniform(c_rng) - L/2;
+
+	  for (k = 0; k < n; k++) {
+	
+	    /* Distancia cuadrática entre ambos centros. */
+	    d_sq = (swarm[k].x - x) * (swarm[k].x - x) +
+	      (swarm[k].y - y) * (swarm[k].y - y) +
+	      (swarm[k].z - z) * (swarm[k].z - z);
+	
+	    if (d_sq < thresh) /* muy cerca... */
+	      break;
+	  }
+
+	  if (k < n && tries < INIT_MAX_TRIES) {
+	    /* Intentos...tampoco esto debe convertirse en un bucle infinito. */
+	    tries++;
+	    continue;
+	  }
+
+	  /* Posiciones. */
 	  swarm[n].x = x;
 	  swarm[n].y = y;
 	  swarm[n].z = z;
-	  
-	  /* Momentos. */
-	  swarm[n].px = gsl_ran_gaussian(rng, sigma);
-	  swarm[n].py = gsl_ran_gaussian(rng, sigma);
-	  swarm[n].pz = gsl_ran_gaussian(rng, sigma);
 
-	  /* Energía. */
-	  
-	  /* Partícula. */
-	  swarm[n].r = sqrt(x * x + y * y + z * z);
+	  /* Momentos. */
+	  swarm[n].px = gsl_ran_gaussian(p_rng, sigma);
+	  swarm[n].py = gsl_ran_gaussian(p_rng, sigma);
+	  swarm[n].pz = gsl_ran_gaussian(p_rng, sigma);
+
+	  /* Energía - Partícula. */
 	  swarm[n].p = swarm[n].px * swarm[n].px +
 	    swarm[n].py * swarm[n].py +
 	    swarm[n].pz * swarm[n].pz;
@@ -100,31 +172,34 @@ initialise(system_t * restrict sys, unsigned int N,
 	  swarm[n].K = swarm[n].p/(2 * PARTICLE_MASS);
 	  swarm[n].p = sqrt(swarm[n].p);
 
-	  /* Sistema. */
+	  /* Energía - Sistema. */
 	  sys->u += swarm[n].K;
-
+	
 	  for (k = 0; k < n; ++k) { /* Todas las anteriores. */
 
 	    d_sq = sqrt((swarm[k].x - x) * (swarm[k].x - x) +
-		    (swarm[k].y - y) * (swarm[k].y - y) +
-		    (swarm[k].z - z) * (swarm[k].z - z));
+			(swarm[k].y - y) * (swarm[k].y - y) +
+			(swarm[k].z - z) * (swarm[k].z - z));
 
 	    sys->u += potencial(d_sq);
-	  }	  
+	  }
 
 	  n++;
-	  if (n > 511)
-	    goto _a;
-
+	  tries = 0;
 	}
+
+	gsl_rng_free(c_rng);
       }
     }
 
-  _a:    
-    printf("Delta l:%i/%i.\n", n, N);
+  clean_and_return:
+    gsl_rng_free(p_rng);    
 
-    gsl_rng_free(rng);
+    if (frand != NULL)
+      fclose(frand);
   }
+
+  return n;
 }
 
 ssize_t
