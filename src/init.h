@@ -25,8 +25,8 @@ struct particle {
 typedef struct particle particle_t;
 
 struct system {
-  unsigned int N, L;
-  double kT, u, rho;
+  unsigned int N;
+  double kT, u, L, rho;
   particle_t *swarm;
 };
 

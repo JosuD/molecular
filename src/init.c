@@ -50,7 +50,6 @@ initialise(system_t * restrict sys, unsigned int N, double rho,
     /* Propiedades del sistema. */
 
     L = cbrt(N/rho);
-
     sys->N = N;
     sys->L = L;
     sys->kT = kT;
@@ -68,9 +67,9 @@ initialise(system_t * restrict sys, unsigned int N, double rho,
       /* Distribuye en forma de grilla, no necesariamente
        * de manera uniforme (esto no preserva la densidad). */
 
-      for (x = dl/2; x < L; x += dl) {
-	for (y = dl/2; y < L; y += dl) {
-	  for (z = dl/2; z < L; z += dl) {
+      for (x = dl/2; x < L - dl/2; x += dl) {
+	for (y = dl/2; y < L - dl/2; y += dl) {
+	  for (z = dl/2; z < L - dl/2; z += dl) {
 
 	    /* Ubicación de las partículas en los centros de
 	     * cada uno de los cubos que dividen al volumen. */
